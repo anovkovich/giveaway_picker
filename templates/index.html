@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giveaway Winner Picker</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top */
+            padding-top: 50px;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        .container {
+            display: flex;
+            gap: 50px;
+            align-items: flex-start;
+        }
+
+        /* --- Generic Panel Style --- */
+        .panel {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* --- Left Column --- */
+        .left-column {
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- HEIGHT ADJUSTMENT --- */
+        #comments-container { height: 552px; overflow-y: hidden; }
+        #comments-container h2 { margin-top: 0; text-align: center; color: #333; }
+        .comment {
+            margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px;
+            transition: opacity 0.3s ease;
+        }
+        .comment:last-of-type { border-bottom: none; }
+        .comment .username { font-weight: bold; color: #1c1e21; }
+        .comment .text { color: #606770; word-wrap: break-word; }
+
+        /* --- FADE OUT LOGIC RESTORED --- */
+        #comments-list .comment:nth-last-child(2) { opacity: 0.6; }
+        #comments-list .comment:nth-last-child(1) { opacity: 0.3; }
+
+        /* --- New Winners Section --- */
+        #winners-section {
+            display: none; /* Hidden by default */
+            border-left: 5px solid #FFD700;
+            /* --- HEIGHT ADJUSTMENT --- */
+            height: 600px; /* Match new height of comments + button */
+        }
+        #winners-section h2 { margin: 0 0 15px 0; color: #333; }
+        #winners-list { list-style-position: inside; padding-left: 0; margin: 0; }
+        #winners-list li {
+            padding: 10px 5px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #1877f2;
+            border-bottom: 1px solid #eee;
+            opacity: 0;
+            transform: translateY(15px);
+            animation: fadeIn 0.5s forwards;
+        }
+
+        /* --- Middle Column: Wheel --- */
+        .wheel-container {
+            display: flex; flex-direction: column; align-items: center;
+            position: relative; padding-top: 40px;
+        }
+        .wheel {
+            width: 350px; height: 350px; border-radius: 50%;
+            position: relative; overflow: hidden;
+            border: 8px solid #333; box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            background-color: #f9f9f9;
+        }
+        .pointer {
+            width: 0; height: 0;
+            border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-top: 30px solid #d93434;
+            position: absolute; top: 0px; left: 50%;
+            transform: translateX(-50%); z-index: 10;
+        }
+
+        /* --- Right Column: Contestants --- */
+        #contestants-section {
+            width: 300px;
+             /* --- HEIGHT ADJUSTMENT --- */
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+        #contestants-section h2 { margin: 0 0 15px 0; text-align: center; color: #333; }
+        #contestants-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
+        .contestant-item {
+            display: flex; align-items: center; margin-bottom: 12px;
+            font-size: 16px; font-weight: 500;
+            padding: 5px; border-radius: 5px;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .contestant-item.removing {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        .contestant-color-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
+
+        /* --- Buttons & Modal --- */
+        .action-button {
+            margin-top: 20px; padding: 12px 25px; font-size: 16px; font-weight: bold;
+            cursor: pointer; border: none; border-radius: 6px;
+            transition: background-color 0.3s ease, transform 0.1s ease; width: 100%;
+        }
+        .action-button:active { transform: scale(0.98); }
+        #pick-random-btn { background-color: #1877f2; color: white; }
+        #spin-btn { background-color: #42b72a; color: white; }
+        .action-button:disabled { background-color: #9e9e9e; cursor: not-allowed; opacity: 0.7; }
+
+        @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center;
+            z-index: 100; opacity: 0; visibility: hidden; transition: all 0.3s ease;
+        }
+        .modal-overlay.show { opacity: 1; visibility: visible; }
+        .winner-modal {
+            background: white; padding: 40px; border-radius: 8px; text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); transform: scale(0.9); transition: transform 0.3s ease;
+        }
+        .winner-modal .winner-name { font-size: 24px; font-weight: bold; color: #1877f2; }
+        #close-modal-btn {
+            background-color: #1877f2;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        #close-modal-btn:hover {
+            background-color: #166fe5; /* A slightly darker blue for hover */
+        }
+        #close-modal-btn:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-column">
+            <div class="panel" id="comments-container">
+                <h2>Latest Comments</h2>
+                <div id="comments-list"></div>
+            </div>
+            <button class="action-button" id="pick-random-btn">Pick a contestant (0/6)</button>
+            <div class="panel" id="winners-section">
+                <h2>🏆 Winner's Circle 🏆</h2>
+                <ol id="winners-list"></ol>
+            </div>
+        </div>
+        <div class="wheel-container">
+            <div class="pointer"></div>
+            <div class="wheel" id="wheel"></div>
+            <button class="action-button" id="spin-btn" disabled>Spin the Wheel!</button>
+        </div>
+        <div class="panel" id="contestants-section">
+            <h2>Contestants</h2>
+            <ul id="contestants-list"></ul>
+        </div>
+    </div>
+    <div class="modal-overlay" id="winner-modal-overlay">
+        <div class="winner-modal">
+            <h2 id="winner-title">🎉 The Winner Is 🎉</h2>
+            <p class="winner-name" id="winner-name"></p>
+            <button id="close-modal-btn">OK</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const commentsContainer = document.getElementById('comments-container');
+            const commentsList = document.getElementById('comments-list');
+            const pickRandomBtn = document.getElementById('pick-random-btn');
+            const winnersSection = document.getElementById('winners-section');
+            const winnersList = document.getElementById('winners-list');
+            const wheel = document.getElementById('wheel');
+            const spinBtn = document.getElementById('spin-btn');
+            const contestantsList = document.getElementById('contestants-list');
+            const winnerModalOverlay = document.getElementById('winner-modal-overlay');
+            const winnerTitleEl = document.getElementById('winner-title');
+            const winnerNameEl = document.getElementById('winner-name');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+
+            let allComments = [];
+            let wheelParticipants = [];
+            let chosenWinners = [];
+            let currentRotation = 0;
+            let isSpinning = false;
+            const MAX_PARTICIPANTS = 6;
+            const SPIN_DURATION = 5000;
+
+            async function fetchComments() {
+                try {
+                    const response = await fetch('/get_comments');
+                    allComments = await response.json();
+                    const commentsToShow = allComments.slice(0, 5);
+                    commentsList.innerHTML = '';
+                    commentsToShow.forEach(c => {
+                        commentsList.innerHTML += `<div class="comment" id="comments-list"><p class="username">${c.username}</p><p class="text">${c.comment}</p></div>`;
+                    });
+                } catch (error) { console.error('Error fetching comments:', error); }
+            }
+
+            function updateUI() {
+                const numSegments = wheelParticipants.length;
+
+                if (numSegments === 0) {
+                    wheel.style.backgroundImage = 'radial-gradient(#fff, #f0f0f0)';
+                    contestantsList.innerHTML = '';
+                } else {
+                    const segmentDegrees = 360 / numSegments;
+                    const participantColors = wheelParticipants.map((_, i) => `hsl(${(360 / numSegments) * i}, 90%, 75%)`);
+                    const gradientParts = participantColors.map((c, i) => `${c} ${segmentDegrees * i}deg ${segmentDegrees * (i + 1)}deg`);
+                    wheel.style.backgroundImage = `conic-gradient(${gradientParts.join(', ')})`;
+
+                    contestantsList.innerHTML = '';
+                    wheelParticipants.forEach((participant, index) => {
+                        const listItem = document.createElement('li');
+                        listItem.classList.add('contestant-item');
+                        listItem.innerHTML = `<div class="contestant-color-dot" style="background-color: ${participantColors[index]}"></div><span>${participant}</span>`;
+                        contestantsList.appendChild(listItem);
+                    });
+                }
+
+                pickRandomBtn.textContent = `Pick a contestant (${wheelParticipants.length}/${MAX_PARTICIPANTS})`;
+                pickRandomBtn.disabled = chosenWinners.length > 0 || wheelParticipants.length === MAX_PARTICIPANTS;
+                spinBtn.disabled = (numSegments < 2) || isSpinning;
+            }
+
+            function pickRandomParticipant() {
+                if (wheelParticipants.length >= MAX_PARTICIPANTS) return;
+                const uniqueUsernames = [...new Set(allComments.map(c => c.username))];
+                const available = uniqueUsernames.filter(u => !wheelParticipants.includes(u) && !chosenWinners.includes(u));
+                if (available.length === 0) { alert("Not enough unique commenters!"); return; }
+                const randomIndex = Math.floor(Math.random() * available.length);
+                wheelParticipants.push(available[randomIndex]);
+                updateUI();
+            }
+
+            function spinWheel() {
+                isSpinning = true;
+                updateUI();
+                const numSegments = wheelParticipants.length;
+                if (numSegments === 0) return;
+
+                const winningIndex = Math.floor(Math.random() * numSegments);
+                const winner = wheelParticipants[winningIndex];
+
+                const segmentDegrees = 360 / numSegments;
+                const targetAngle = (segmentDegrees * winningIndex) + (segmentDegrees / 2);
+                const requiredRotation = (360 * 10) - targetAngle;
+                currentRotation = Math.ceil(currentRotation / 360) * 360 + requiredRotation;
+
+                wheel.style.transition = `transform ${SPIN_DURATION}ms cubic-bezier(0.2, 0.8, 0.2, 1)`;
+                wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+                setTimeout(() => showWinner(winner, winningIndex), SPIN_DURATION);
+            }
+
+            function showWinner(winnerName, winnerIndex) {
+                isSpinning = false;
+
+                if (chosenWinners.length === 0) {
+                    commentsContainer.style.display = 'none';
+                    pickRandomBtn.style.display = 'none';
+                    winnersSection.style.display = 'block';
+                }
+
+                chosenWinners.push(winnerName);
+                const winnerNumber = chosenWinners.length;
+                winnersList.innerHTML += `<li>${winnerNumber}. Winner #${winnerNumber}:<br><strong>${winnerName}</strong></li>`;
+
+                winnerTitleEl.innerHTML = `🎉 Winner #${winnerNumber}! 🎉`;
+                winnerNameEl.textContent = winnerName;
+                winnerModalOverlay.classList.add('show');
+                confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+
+                const contestantItem = contestantsList.children[winnerIndex];
+                if (contestantItem) contestantItem.classList.add('removing');
+
+                closeModalBtn.onclick = () => {
+                    winnerModalOverlay.classList.remove('show');
+                    wheelParticipants.splice(winnerIndex, 1);
+                    wheel.style.transition = 'none';
+                    wheel.style.transform = 'rotate(0deg)';
+                    currentRotation = 0;
+                    updateUI();
+                    setTimeout(() => {
+                         wheel.style.transition = `transform ${SPIN_DURATION}ms cubic-bezier(0.2, 0.8, 0.2, 1)`;
+                    }, 50);
+                };
+            }
+
+            pickRandomBtn.addEventListener('click', pickRandomParticipant);
+            spinBtn.addEventListener('click', spinWheel);
+
+            setTimeout(() => { fetchComments(); updateUI(); }, 100);
+        });
+    </script>
+</body>
+</html>

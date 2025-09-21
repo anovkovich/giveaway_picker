@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giveaway Settings</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+        }
+        .settings-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            width: 400px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 25px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #606770;
+            margin-bottom: 8px;
+        }
+        .form-group input[type="number"],
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .form-group input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        .form-group-checkbox {
+            display: flex;
+            align-items: center;
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #42b72a;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .submit-btn:hover {
+            background-color: #36a420;
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-container">
+        <h1>Giveaway Rules</h1>
+        <form action="/start" method="post">
+            <div class="form-group">
+                <label for="mentions">Required Mentions</label>
+                <select name="mentions" id="mentions">
+                    <option value="0">Any (0 or more)</option>
+                    <option value="1">At least 1</option>
+                    <option value="2">At least 2</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="min_followers">Minimum Follower Count</label>
+                <input type="number" name="min_followers" id="min_followers" value="0" min="0">
+            </div>
+            <div class="form-group form-group-checkbox">
+                <input type="checkbox" name="allow_multiple" id="allow_multiple" checked>
+                <label for="allow_multiple">Allow multiple entries per user?</label>
+            </div>
+            <button type="submit" class="submit-btn">Start Giveaway</button>
+        </form>
+    </div>
+</body>
+</html>
