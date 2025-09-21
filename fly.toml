@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for giveaway-picker-9gx-nq on 2025-09-21T16:45:56+02:00
+# fly.toml app configuration file generated for giveaway-picker-9gx-nq on 2025-09-21T14:59:32Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -6,8 +6,10 @@
 app = 'giveaway-picker-9gx-nq'
 primary_region = 'otp'
 
+[build]
+
 [http_service]
-  internal_port = 5000
+  internal_port = 8080
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
@@ -19,7 +21,3 @@ primary_region = 'otp'
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 1024
-
-[mounts]
-  source = "app_data"
-  destination = "/app/sessions"
