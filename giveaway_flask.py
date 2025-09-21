@@ -1,43 +1,76 @@
 import json
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, request
 
-# Initialize the Flask application
 app = Flask(__name__)
 
-# --- Route 1: The main webpage ---
-# This tells Flask that when someone visits the main URL ('/'),
-# it should run this function.
-@app.route('/')
-def index():
-    """
-    Renders the main giveaway page (index.html).
-    """
-    return render_template('index.html')
 
-# --- Route 2: The data endpoint ---
-# This creates a URL '/get_comments' that the JavaScript on your
-# webpage can call to get the giveaway participants' data.
-@app.route('/get_comments')
-def get_comments():
+# --- Route 1: The new settings page ---
+@app.route('/')
+def settings():
+    """Renders the settings page."""
+    return render_template('settings.html')
+
+
+# --- Route 2: The logic to filter contestants and start the giveaway ---
+@app.route('/start', methods=['POST'])
+def start_giveaway():
     """
-    Opens the JSON file, reads the data, and returns it.
-    This acts as an API for our front end.
+    Reads the rules from the settings form, filters the JSON data,
+    and renders the giveaway wheel page with the eligible contestants.
     """
     try:
+        # 1. Load the raw data
         with open('comments_data.json', 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        return jsonify(data)
+            all_comments = json.load(f)
+
+        # 2. Get the rules from the form submission
+        required_mentions = int(request.form.get('mentions', 0))
+        min_followers = int(request.form.get('min_followers', 0))
+        allow_multiple_entries = 'allow_multiple' in request.form
+
+        # 3. Filter the comments based on the rules
+        eligible_comments = []
+        for comment in all_comments:
+            # Rule: Minimum followers
+            if comment.get('followers', 0) < min_followers:
+                continue
+
+            # Rule: Required mentions
+            if comment.get('comment', '').count('@') < required_mentions:
+                continue
+
+            # If all rules pass, add the comment
+            eligible_comments.append(comment)
+
+        # 4. Handle the "allow multiple entries" rule
+        if not allow_multiple_entries:
+            # If multiple entries are NOT allowed, we need to get unique users
+            unique_entrants = {}
+            for comment in eligible_comments:
+                username = comment['username']
+                if username not in unique_entrants:
+                    unique_entrants[username] = comment
+            # The final list is just the values (the comments) from our unique dictionary
+            final_contestants = list(unique_entrants.values())
+        else:
+            # If multiple entries ARE allowed, the list is already good to go
+            final_contestants = eligible_comments
+
+        # 5. Render the wheel page, passing both the raw comments (for display)
+        # and the filtered list of contestants (for the wheel).
+        return render_template(
+            'index.html',
+            raw_comments_json=json.dumps(all_comments),
+            contestants_json=json.dumps(final_contestants),
+            required_mentions=required_mentions,
+            allow_multiple_entries=allow_multiple_entries
+        )
+
     except FileNotFoundError:
-        # If the file doesn't exist, return an error message.
-        return jsonify({"error": "comments_data.json not found"}), 404
-    except json.JSONDecodeError:
-        # If the file is empty or corrupted, return an error.
-        return jsonify({"error": "Failed to decode JSON from comments_data.json"}), 500
+        return "Error: comments_data.json not found. Please run main.py first.", 404
+    except Exception as e:
+        return f"An error occurred: {e}", 500
 
 
-# This is the standard entry point for a Flask application.
-# It tells Python to run the web server if this script is executed directly.
 if __name__ == '__main__':
-    # debug=True allows you to see errors in the browser and automatically
-    # reloads the server when you make changes to the code.
     app.run(debug=True)

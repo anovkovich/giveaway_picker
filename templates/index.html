@@ -44,12 +44,13 @@
         #comments-container { height: 552px; overflow-y: hidden; }
         #comments-container h2 { margin-top: 0; text-align: center; color: #333; }
         .comment {
-            margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px;
+            margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 15px;
             transition: opacity 0.3s ease;
         }
         .comment:last-of-type { border-bottom: none; }
         .comment .username { font-weight: bold; color: #1c1e21; }
         .comment .text { color: #606770; word-wrap: break-word; }
+        .comment p { margin: 0 }
 
         /* --- FADE OUT LOGIC RESTORED --- */
         #comments-list .comment:nth-last-child(2) { opacity: 0.6; }
@@ -63,7 +64,7 @@
             height: 600px; /* Match new height of comments + button */
         }
         #winners-section h2 { margin: 0 0 15px 0; color: #333; }
-        #winners-list { list-style-position: inside; padding-left: 0; margin: 0; }
+        #winners-list { list-style-position: inside; list-style-type: none; padding-left: 0; margin: 0; }
         #winners-list li {
             padding: 10px 5px;
             font-size: 18px;
@@ -156,6 +157,33 @@
         #close-modal-btn:active {
             transform: scale(0.98);
         }
+        #rules-section {
+            box-sizing: border-box;
+            background-color: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            font-size: 12px;
+            color: #6c757d;
+            position: absolute;
+            bottom: 0;
+            width: 40vw;
+            left: 50%;
+            transform: translateX(-50%);
+            padding-bottom: 5px;
+            border-radius: 8px 8px 0 0;
+        }
+        #rules-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #rules-section li {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+        #rules-section li strong {
+            color: #212529;
+        }
     </style>
 </head>
 <body>
@@ -168,7 +196,7 @@
             <button class="action-button" id="pick-random-btn">Pick a contestant (0/6)</button>
             <div class="panel" id="winners-section">
                 <h2>🏆 Winner's Circle 🏆</h2>
-                <ol id="winners-list"></ol>
+                <ul id="winners-list"></ul>
             </div>
         </div>
         <div class="wheel-container">
@@ -181,6 +209,24 @@
             <ul id="contestants-list"></ul>
         </div>
     </div>
+
+    <div class="panel" id="rules-section">
+        <ul>
+            <li>
+                <span>Required Mentions:</span>
+                <strong>
+                    {% if required_mentions == 0 %}Any{% elif required_mentions == 1 %}At least 1 mention{% else %}At least 2 mentions{% endif %}
+                </strong>
+            </li>
+            <li>
+                <span>Multiple Entries:</span>
+                <strong>
+                    {% if allow_multiple_entries %}Allowed more entries{% else %}Not Allowed{% endif %}
+                </strong>
+            </li>
+        </ul>
+    </div>
+
     <div class="modal-overlay" id="winner-modal-overlay">
         <div class="winner-modal">
             <h2 id="winner-title">🎉 The Winner Is 🎉</h2>
@@ -204,7 +250,11 @@
             const winnerNameEl = document.getElementById('winner-name');
             const closeModalBtn = document.getElementById('close-modal-btn');
 
-            let allComments = [];
+            // --- State variables ---
+            // Data is now passed directly from Flask into these constants
+            const rawComments = {{ raw_comments_json|safe }};
+            const allEligibleContestants = {{ contestants_json|safe }};
+
             let wheelParticipants = [];
             let chosenWinners = [];
             let currentRotation = 0;
@@ -212,18 +262,21 @@
             const MAX_PARTICIPANTS = 6;
             const SPIN_DURATION = 5000;
 
-            async function fetchComments() {
-                try {
-                    const response = await fetch('/get_comments');
-                    allComments = await response.json();
-                    const commentsToShow = allComments.slice(0, 5);
-                    commentsList.innerHTML = '';
-                    commentsToShow.forEach(c => {
-                        commentsList.innerHTML += `<div class="comment" id="comments-list"><p class="username">${c.username}</p><p class="text">${c.comment}</p></div>`;
-                    });
-                } catch (error) { console.error('Error fetching comments:', error); }
+            // --- Initial Setup ---
+            // This function replaces the old fetchComments()
+            function initializePage() {
+                // 1. Display the raw latest comments (as per the requirement)
+                const commentsToShow = rawComments.slice(0, 8);
+                commentsList.innerHTML = '';
+                commentsToShow.forEach(c => {
+                    commentsList.innerHTML += `<div class="comment" id="comments-list"><p class="username">${c.username}</p><p class="text">${c.comment}</p></div>`;
+                });
+
+                // 2. Initial UI update
+                updateUI();
             }
 
+            // --- UI Update Logic ---
             function updateUI() {
                 const numSegments = wheelParticipants.length;
 
@@ -240,7 +293,7 @@
                     wheelParticipants.forEach((participant, index) => {
                         const listItem = document.createElement('li');
                         listItem.classList.add('contestant-item');
-                        listItem.innerHTML = `<div class="contestant-color-dot" style="background-color: ${participantColors[index]}"></div><span>${participant}</span>`;
+                        listItem.innerHTML = `<div class="contestant-color-dot" style="background-color: ${participantColors[index]}"></div><span>${participant.username}</span>`;
                         contestantsList.appendChild(listItem);
                     });
                 }
@@ -250,16 +303,27 @@
                 spinBtn.disabled = (numSegments < 2) || isSpinning;
             }
 
+            // --- Picking Contestants (now from the pre-filtered list) ---
             function pickRandomParticipant() {
                 if (wheelParticipants.length >= MAX_PARTICIPANTS) return;
-                const uniqueUsernames = [...new Set(allComments.map(c => c.username))];
-                const available = uniqueUsernames.filter(u => !wheelParticipants.includes(u) && !chosenWinners.includes(u));
-                if (available.length === 0) { alert("Not enough unique commenters!"); return; }
+
+                // Find contestants who are eligible AND not already on the wheel
+                const available = allEligibleContestants.filter(contestant =>
+                    !wheelParticipants.some(p => p.comment === contestant.comment && p.username === contestant.username) &&
+                    !chosenWinners.includes(contestant.username)
+                );
+
+                if (available.length === 0) {
+                    alert("No more eligible contestants to add!");
+                    return;
+                }
+
                 const randomIndex = Math.floor(Math.random() * available.length);
                 wheelParticipants.push(available[randomIndex]);
                 updateUI();
             }
 
+            // --- Spinning the Wheel ---
             function spinWheel() {
                 isSpinning = true;
                 updateUI();
@@ -280,7 +344,8 @@
                 setTimeout(() => showWinner(winner, winningIndex), SPIN_DURATION);
             }
 
-            function showWinner(winnerName, winnerIndex) {
+            // --- Handling the Winner ---
+            function showWinner(winnerObject, winnerIndex) {
                 isSpinning = false;
 
                 if (chosenWinners.length === 0) {
@@ -289,12 +354,12 @@
                     winnersSection.style.display = 'block';
                 }
 
-                chosenWinners.push(winnerName);
+                chosenWinners.push(winnerObject.username);
                 const winnerNumber = chosenWinners.length;
-                winnersList.innerHTML += `<li>${winnerNumber}. Winner #${winnerNumber}:<br><strong>${winnerName}</strong></li>`;
+                winnersList.innerHTML += `<li>Winner #${winnerNumber}:<br><strong>@${winnerObject.username}</strong></li>`;
 
                 winnerTitleEl.innerHTML = `🎉 Winner #${winnerNumber}! 🎉`;
-                winnerNameEl.textContent = winnerName;
+                winnerNameEl.textContent = winnerObject.username;
                 winnerModalOverlay.classList.add('show');
                 confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
 
@@ -303,21 +368,28 @@
 
                 closeModalBtn.onclick = () => {
                     winnerModalOverlay.classList.remove('show');
+
+                    // Remove the winner object from the participants array
                     wheelParticipants.splice(winnerIndex, 1);
+
                     wheel.style.transition = 'none';
                     wheel.style.transform = 'rotate(0deg)';
                     currentRotation = 0;
+
                     updateUI();
+
                     setTimeout(() => {
                          wheel.style.transition = `transform ${SPIN_DURATION}ms cubic-bezier(0.2, 0.8, 0.2, 1)`;
                     }, 50);
                 };
             }
 
+            // --- Event Listeners ---
             pickRandomBtn.addEventListener('click', pickRandomParticipant);
             spinBtn.addEventListener('click', spinWheel);
 
-            setTimeout(() => { fetchComments(); updateUI(); }, 100);
+            // Start the app
+            initializePage();
         });
     </script>
 </body>
