@@ -33,7 +33,7 @@
             display: block;
             font-weight: 600;
             color: #606770;
-            margin-bottom: 8px;
+            margin-bottom: 3px;
         }
         .form-group input[type="number"],
         .form-group select {
@@ -82,7 +82,18 @@
             </div>
             <div class="form-group">
                 <label for="min_followers">Minimum Follower Count</label>
-                <input type="number" name="min_followers" id="min_followers" value="0" min="0">
+
+                {% if followers_fetched %}
+                    <!-- If followers WERE fetched, show the normal input -->
+                    <input type="number" name="min_followers" id="min_followers" value="0" min="0">
+                {% else %}
+                    <!-- If they were NOT fetched, show a disabled input and a message -->
+                    <input type="number" name="min_followers" id="min_followers" value="0" min="0" disabled>
+                    <small style="color: #6c757d; margin-top: 5px; display: block;">
+                        This rule is disabled because follower counts were not fetched.
+                    </small>
+                {% endif %}
+
             </div>
             <div class="form-group form-group-checkbox">
                 <input type="checkbox" name="allow_multiple" id="allow_multiple" checked>

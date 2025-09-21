@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Login</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            width: 400px;
+        }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        .form-group { margin-bottom: 20px; }
+        #fetch_followers { width: auto }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #606770;
+            margin-bottom: 3px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .form-group-checkbox {
+            display: flex;
+            align-items: center;
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #1877f2;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .submit-btn:hover { background-color: #166fe5; }
+        .error, .info {
+            text-align: center;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fetch Instagram Comments</h1>
+
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+        {% if two_factor_required %}
+            <p class="info">Two-Factor Authentication Required</p>
+        {% endif %}
+
+        <form action="/scrape" method="post">
+            <div class="form-group">
+                <label for="username">Instagram Username</label>
+                <input type="text" name="username" id="username" value="{{ username or '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Instagram Password</label>
+                <input type="password" name="password" id="password" value="{{ password or '' }}" required>
+            </div>
+             <div class="form-group">
+                <label for="shortcode">Post Shortcode</label>
+                <input type="text" name="shortcode" id="shortcode" placeholder="e.g., Pa0Z11TjDst" value="{{ shortcode or '' }}" required>
+            </div>
+            <div class="form-group form-group-checkbox">
+                <input type="checkbox" name="fetch_followers" id="fetch_followers" checked>
+                <label for="fetch_followers">Fetch follower counts (very slow, be patient)</label>
+            </div>
+
+            {% if two_factor_required %}
+            <div class="form-group">
+                <label for="verification_code">2FA Code from App/SMS</label>
+                <input type="text" name="verification_code" id="verification_code" required>
+            </div>
+            {% endif %}
+
+            <button type="submit" class="submit-btn">Fetch Comments</button>
+        </form>
+    </div>
+</body>
+</html>
