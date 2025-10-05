@@ -41,7 +41,7 @@
         }
 
         /* --- HEIGHT ADJUSTMENT --- */
-        #comments-container { height: 552px; overflow-y: hidden; }
+        #comments-container { height: 552px; overflow-y: auto; }
         #comments-container h2 { margin-top: 0; text-align: center; color: #333; }
         .comment {
             margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 15px;
@@ -52,9 +52,6 @@
         .comment .text { color: #606770; word-wrap: break-word; }
         .comment p { margin: 0 }
 
-        /* --- FADE OUT LOGIC RESTORED --- */
-        #comments-list .comment:nth-last-child(2) { opacity: 0.6; }
-        #comments-list .comment:nth-last-child(1) { opacity: 0.3; }
 
         /* --- New Winners Section --- */
         #winners-section {
@@ -190,7 +187,7 @@
     <div class="container">
         <div class="left-column">
             <div class="panel" id="comments-container">
-                <h2>Latest Comments</h2>
+                <h2>Comments (Total: {{ raw_comments_list|length }}):</h2>
                 <div id="comments-list"></div>
             </div>
             <button class="action-button" id="pick-random-btn">Pick a contestant (0/6)</button>
@@ -266,7 +263,7 @@
             // This function replaces the old fetchComments()
             function initializePage() {
                 // 1. Display the raw latest comments (as per the requirement)
-                const commentsToShow = rawComments.slice(0, 8);
+                const commentsToShow = rawComments;
                 commentsList.innerHTML = '';
                 commentsToShow.forEach(c => {
                     commentsList.innerHTML += `<div class="comment" id="comments-list"><p class="username">${c.username}</p><p class="text">${c.comment}</p></div>`;

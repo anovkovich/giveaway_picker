@@ -25,7 +25,12 @@ def scrape_comments():
 
     username = request.form.get('username')
     password = request.form.get('password')
-    shortcode = request.form.get('shortcode')
+
+    shortcodes = [
+        value for key, value in request.form.items()
+        if key.startswith('shortcode') and value.strip()
+    ]
+
     verification_code = request.form.get('verification_code')
 
     fetch_followers = 'fetch_followers' in request.form
@@ -49,43 +54,44 @@ def scrape_comments():
             cl.dump_settings(session_file)
             print(f"✅ New session saved to {session_file}")
 
-        print(f"Fetching comments for shortcode: {shortcode}")
-        media_pk = cl.media_pk_from_code(shortcode)
-        comments = cl.media_comments(media_pk)
-        print(f"Found {len(comments)} comments. Now fetching follower counts...")
-
         comments_data = []
-        # ======================= THIS IS THE CRITICAL FIX =======================
-        # We must loop through each comment and fetch the full user profile
-        # to get the follower count.
-        if fetch_followers:
-            for comment in comments:
-                try:
-                    # Make the extra API call to get the full user object
-                    user_info = cl.user_info_by_username(comment.user.username)
-                    followers = user_info.follower_count
-                except (UserNotFound, Exception) as e:
-                    # If user is private, not found, or any other error, default to 0
-                    print(f"Could not fetch info for {comment.user.username}: {e}")
-                    followers = 0
 
-                comments_data.append({
-                    "username": comment.user.username,
-                    "followers": followers,
-                    "comment": comment.text
-                })
-        else:
-            print("Skipping follower count fetch (fast).")
-            for comment in comments:
-                comments_data.append({
-                    "username": comment.user.username,
-                    "followers": 0,  # Default to 0 if not fetched
-                    "comment": comment.text
-                })
-        # ======================================================================
+        for shortcode in shortcodes:
+            print(f"Fetching comments for shortcode: {shortcode}")
+            media_pk = cl.media_pk_from_code(shortcode)
+            comments = cl.media_comments(media_pk, amount=0)
+            print(f"Found {len(comments)} comments. Now fetching follower counts...")
+
+        # comments_data = []
+
+            if fetch_followers:
+                for comment in comments:
+                    try:
+                        # Make the extra API call to get the full user object
+                        user_info = cl.user_info_by_username(comment.user.username)
+                        followers = user_info.follower_count
+                    except (UserNotFound, Exception) as e:
+                        # If user is private, not found, or any other error, default to 0
+                        print(f"Could not fetch info for {comment.user.username}: {e}")
+                        followers = 0
+
+                    comments_data.append({
+                        "username": comment.user.username,
+                        "followers": followers,
+                        "comment": comment.text
+                    })
+            else:
+                print("Skipping follower count fetch (fast).")
+                for comment in comments:
+                    comments_data.append({
+                        "username": comment.user.username,
+                        "followers": 0,  # Default to 0 if not fetched
+                        "comment": comment.text
+                    })
 
         with open("comments_data.json", "w", encoding="utf-8") as f:
             json.dump(comments_data, f, ensure_ascii=False, indent=4)
+            print(f"Total comments found: {len(comments_data)}")
         print("✅ Comments data saved to comments_data.json")
 
         session['followers_fetched'] = fetch_followers
@@ -98,7 +104,7 @@ def scrape_comments():
                                two_factor_required=True,
                                username=username,
                                password=password,
-                               shortcode=shortcode)
+                               shortcodes=shortcodes)
     except LoginRequired:
         print("LoginRequired error. Session might be corrupt. Deleting.")
         if os.path.exists(session_file):
@@ -146,6 +152,7 @@ def start_giveaway():
 
         return render_template(
             'index.html',
+            raw_comments_list=all_comments,
             raw_comments_json=json.dumps(all_comments),
             contestants_json=json.dumps(final_contestants),
             required_mentions=required_mentions,

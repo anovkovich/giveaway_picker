@@ -42,6 +42,19 @@
             display: flex;
             align-items: center;
         }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            color: black;
+            background-color: #f2f0eb;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .btn:hover { background-color: #e0dacf; }
         .submit-btn {
             width: 100%;
             padding: 12px;
@@ -85,10 +98,28 @@
                 <label for="password">Instagram Password</label>
                 <input type="password" name="password" id="password" value="{{ password or '' }}" required>
             </div>
-             <div class="form-group">
-                <label for="shortcode">Post Shortcode</label>
-                <input type="text" name="shortcode" id="shortcode" placeholder="e.g., Pa0Z11TjDst" value="{{ shortcode or '' }}" required>
+
+            <div id="post-shortcodes">
+                {% for code in shortcodes or [] %}
+                    <div class="form-group">
+                        <label for="shortcode_{{ loop.index }}">Post Shortcode #{{ loop.index }}</label>
+                        <input type="text" name="shortcode_{{ loop.index }}"
+                               id="shortcode_{{ loop.index }}"
+                               value="{{ code }}"
+                               required>
+                    </div>
+                {% else %}
+                    <div class="form-group">
+                        <label for="shortcode_1">Post Shortcode #1</label>
+                        <input type="text" name="shortcode_1" id="shortcode_1" placeholder="e.g., Pa0Z11TjDst" required>
+                    </div>
+                {% endfor %}
             </div>
+
+            <div class="form-group">
+                <button type="button" class="btn" onclick="addPostShortcode()">+ Add post</button>
+            </div>
+
             <div class="form-group form-group-checkbox">
                 <input type="checkbox" name="fetch_followers" id="fetch_followers" checked>
                 <label for="fetch_followers">Fetch follower counts (very slow, be patient)</label>
@@ -105,4 +136,5 @@
         </form>
     </div>
 </body>
+<script src="{{ url_for('static', filename='js/login.js') }}"></script>
 </html>
